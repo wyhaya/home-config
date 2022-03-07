@@ -9,8 +9,10 @@
 //!     age: u32,
 //! }
 //!
-//! let config = HomeConfig::new("your_name", "config.json");
-//! // /Users/name/your_name/.config/config.json
+//! let config = HomeConfig::new("app", "config.json");
+//! // macOS: /Users/name/.config/app/config.json
+//! // Linux: /home/name/.config/app/config.json
+//! // Windows: C:\Users\name\app\config.json
 //!
 //! // Parse
 //! let options = config.parse::<Options>().unwrap_or_default();
@@ -25,18 +27,27 @@ use dirs::home_dir;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Error as SerdeError;
 use std::fs::{self, File};
-use std::io::{Error as IoError, Write};
+use std::io::{Error as IoError, ErrorKind, Write};
 use std::path::{Path, PathBuf};
 
 /// Failed to parse configuration file
 #[derive(Debug)]
-pub enum ConfigError {
+pub enum ParseError {
     /// File does not exist
-    Lost,
+    NotFound,
     /// Failed to read file
     Io(IoError),
     /// Serde Error
-    Parse(SerdeError),
+    Deserialize(SerdeError),
+}
+
+/// Failed to save configuration file
+#[derive(Debug)]
+pub enum SaveError {
+    /// Failed to write file
+    Io(IoError),
+    /// Serde Error
+    Serialize(SerdeError),
 }
 
 /// Use the configuration file in the current user directory
@@ -56,33 +67,80 @@ impl HomeConfig {
         }
     }
 
+    /// Get the configuration file path
+    pub fn path(&self) -> &PathBuf {
+        &self.path
+    }
+
     /// Parse the configuration file into a struct
-    pub fn parse<T>(&self) -> Result<T, ConfigError>
+    pub fn parse<T>(&self) -> Result<T, ParseError>
     where
         T: DeserializeOwned,
     {
-        if !self.path.exists() {
-            return Err(ConfigError::Lost);
-        }
-        let file = File::open(&self.path).map_err(ConfigError::Io)?;
-        serde_json::from_reader(file).map_err(ConfigError::Parse)
+        let file = match File::open(&self.path) {
+            Ok(file) => file,
+            Err(e) if e.kind() == ErrorKind::NotFound => {
+                return Err(ParseError::NotFound);
+            }
+            Err(err) => {
+                return Err(ParseError::Io(err));
+            }
+        };
+        serde_json::from_reader(file).map_err(ParseError::Deserialize)
     }
 
     /// Save struct to local file
-    pub fn save<T>(&self, data: T) -> Result<(), IoError>
+    pub fn save<T>(&self, data: T) -> Result<(), SaveError>
     where
         T: Serialize,
     {
         if !self.path.exists() {
             if let Some(parent) = self.path.parent() {
-                fs::create_dir_all(parent)?;
+                fs::create_dir_all(parent).map_err(SaveError::Io)?;
             }
-            File::create(&self.path)?;
         }
 
-        let bytes = serde_json::to_vec_pretty(&data).unwrap();
-        let mut f = File::create(&self.path)?;
-        f.write_all(&bytes)?;
+        let bytes = serde_json::to_vec_pretty(&data).map_err(SaveError::Serialize)?;
+        let mut f = File::create(&self.path).map_err(SaveError::Io)?;
+        f.write_all(&bytes).map_err(SaveError::Io)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::*;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Serialize, Deserialize, Default, Debug, PartialEq, Eq)]
+    struct Options {
+        name: String,
+        age: u32,
+    }
+
+    #[test]
+    fn test_parse() {
+        let config = HomeConfig::new("test", "not.json");
+
+        let rst = config.parse::<Options>().err().unwrap();
+        assert!(matches!(rst, ParseError::NotFound));
+
+        // todo
+    }
+
+    #[test]
+    fn test_save() {
+        let config = HomeConfig::new("test", "config.json");
+
+        config
+            .save(Options {
+                name: "XiaoMing".to_string(),
+                age: 18,
+            })
+            .unwrap();
+
+        let opt = config.parse::<Options>().unwrap();
+        assert_eq!(opt.age, 18);
+        assert_eq!(opt.name, "XiaoMing");
     }
 }

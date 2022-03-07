@@ -4,7 +4,20 @@ on: [push, pull_request]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+
+    name: ${{ matrix.job.target }}
+    runs-on: ${{ matrix.job.os }}
+    strategy:
+      matrix:
+        job: 
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            publish: true
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+
     steps:
 
       - uses: actions/checkout@v2
@@ -15,6 +28,15 @@ jobs:
           profile: minimal
           toolchain: stable
           components: rustfmt
+
+      - name: Cargo cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Cargo fmt
         uses: actions-rs/cargo@v1
@@ -28,7 +50,7 @@ jobs:
           command: test
 
       - name: Cargo publish
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') && matrix.job.publish
         uses: actions-rs/cargo@v1
         with:
           command: publish
