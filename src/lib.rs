@@ -27,7 +27,7 @@ use dirs::home_dir;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Error as SerdeError;
 use std::fs::{self, File};
-use std::io::{Error as IoError, ErrorKind, Write, Result as IoResult};
+use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::path::{Path, PathBuf};
 
 /// Failed to parse configuration file
