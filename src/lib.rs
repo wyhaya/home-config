@@ -27,7 +27,7 @@ use dirs::home_dir;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Error as SerdeError;
 use std::fs::{self, File};
-use std::io::{Error as IoError, ErrorKind, Write};
+use std::io::{Error as IoError, ErrorKind, Write, Result as IoResult};
 use std::path::{Path, PathBuf};
 
 /// Failed to parse configuration file
@@ -70,6 +70,11 @@ impl HomeConfig {
     /// Get the configuration file path
     pub fn path(&self) -> &PathBuf {
         &self.path
+    }
+
+    /// Read the entire contents of a file into a string
+    pub fn read_to_string(&self) -> IoResult<String> {
+        fs::read_to_string(&self.path)
     }
 
     /// Parse the configuration file into a struct
