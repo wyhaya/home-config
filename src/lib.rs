@@ -110,6 +110,15 @@ impl HomeConfig {
         f.write_all(&bytes).map_err(SaveError::Io)?;
         Ok(())
     }
+
+    /// Delete the configuration file
+    pub fn delete(&self) -> IoResult<()> {
+        match fs::remove_file(&self.path) {
+            Ok(()) => Ok(()),
+            Err(err) if err.kind() == ErrorKind::NotFound => Ok(()),
+            Err(err) => Err(err),
+        }
+    }
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 [package]
 name = "home-config"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 description = "Use configuration file in the HOME directory"
 homepage = "https://github.com/wyhaya/home-config"
@@ -16,5 +16,5 @@ keywords = [
 
 [dependencies]
 dirs = "4.0.0"
-serde = {version = "1.0.136", features = ["derive"]}
+serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
