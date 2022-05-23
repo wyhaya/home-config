@@ -48,6 +48,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
+          args: --all-features
 
       - name: Cargo publish
         if: startsWith(github.ref, 'refs/tags/') && matrix.job.publish

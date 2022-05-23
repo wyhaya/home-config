@@ -1,6 +1,6 @@
 [package]
 name = "home-config"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2021"
 description = "Use configuration file in the HOME directory"
 homepage = "https://github.com/wyhaya/home-config"
@@ -9,12 +9,22 @@ authors = ["wyhaya <wyhaya@gmail.com>"]
 license = "MIT"
 readme = "README.md"
 keywords = [
+    "home",
     "config",
     "json",
-    "home"
+    "yaml"
 ]
+
+[package.metadata.docs.rs]
+features = ["json", "yaml"]
+
+[features]
+default = []
+json = ["serde", "serde_json"]
+yaml = ["serde", "serde_yaml"]
 
 [dependencies]
 dirs = "4.0.0"
-serde = { version = "1.0.136", features = ["derive"] }
-serde_json = "1.0.79"
+serde = { version = "1.0.137", features = ["derive"], optional = true }
+serde_json = { version = "1.0.81", optional = true }
+serde_yaml = { version = "0.8.24", optional = true }

@@ -8,7 +8,31 @@
 Use configuration file in the HOME directory
  
 ## Usage
- 
+
+```rust
+use home_config::HomeConfig;
+
+let config = HomeConfig::new("app", "config");
+// Linux: /home/name/.config/app/config
+// macOS: /Users/name/.config/app/config
+// Windows: C:\Users\name\.config\app\config
+
+// Write
+config.save("123456789").unwrap();
+
+// Read
+let data = config.read_to_string().unwrap();
+// 123456789
+```
+
+### json / yaml
+
+Cargo.toml
+
+```toml
+home-config = { version = "*", features = ["json", "yaml"] }
+```
+
 ```rust
 use home_config::HomeConfig;
 use serde::{Deserialize, Serialize};
@@ -20,16 +44,13 @@ struct Options {
 }
 
 let config = HomeConfig::new("app", "config.json");
-// macOS: /Users/name/.config/app/config.json
-// Linux: /home/name/.config/app/config.json
-// Windows: C:\Users\name\app\config.json
 
 // Parse
-let options = config.parse::<Options>().unwrap_or_default();
+let options = config.json::<Options>().unwrap_or_default();
 // options.name == "XiaoMing";
 // options.age == 18;
 
 // Save to file
-config.save(&options).unwrap();
+config.save_json(&options).unwrap();
 ```
 
