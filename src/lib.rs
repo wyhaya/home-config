@@ -15,12 +15,14 @@
 //! // 123456789
 //! ```
 //!
-//! ### json / yaml
+//! ### Serde support
 //!
-//! Cargo.toml
+//! * feature `json`
+//! * feature `yaml`
+//! * feature `toml`
 //!
 //! ```toml
-//! home-config = { version = "*", features = ["json", "yaml"] }
+//! home-config = { version = "*", features = ["json", "yaml", "toml"] }
 //! ```
 //!
 //! ```no_run
@@ -28,7 +30,7 @@
 //! use serde::{Deserialize, Serialize};
 //!
 //! #[derive(Serialize, Deserialize, Default)]
-//! struct Options {
+//! struct People {
 //!     name: String,
 //!     age: u32,
 //! }
@@ -36,22 +38,24 @@
 //! let config = HomeConfig::new("app", "config.json");
 //!
 //! // Parse
-//! let options = config.json::<Options>().unwrap_or_default();
-//! // options.name == "XiaoMing";
-//! // options.age == 18;
+//! let people = config.json::<People>().unwrap();
+//! // people.name == "XiaoMing";
+//! // people.age == 18;
 //!
 //! // Save to file
-//! config.save_json(&options).unwrap();
+//! config.save_json(&people).unwrap();
 //! ```
 
 use dirs::home_dir;
-#[cfg(any(feature = "json", feature = "yaml"))]
+#[cfg(any(feature = "json", feature = "yaml", feature = "toml"))]
 use serde::{de::DeserializeOwned, Serialize};
 use std::fs::{self, File};
-use std::io::{Error as IoError, ErrorKind, Read, Result as IoResult};
+#[cfg(any(feature = "json", feature = "yaml", feature = "toml"))]
+use std::io::Error as IoError;
+use std::io::{ErrorKind, Read, Result as IoResult};
 use std::path::{Path, PathBuf};
 
-/// Serde json Error
+/// Serde `json` error
 #[derive(Debug)]
 #[cfg(feature = "json")]
 pub enum JsonError {
@@ -59,12 +63,28 @@ pub enum JsonError {
     Serde(serde_json::Error),
 }
 
-/// Serde yaml Error
+/// Serde `yaml` error
 #[derive(Debug)]
 #[cfg(feature = "yaml")]
 pub enum YamlError {
     Io(IoError),
     Serde(serde_yaml::Error),
+}
+
+/// Serde `toml` parse error
+#[derive(Debug)]
+#[cfg(feature = "toml")]
+pub enum TomlParseError {
+    Io(IoError),
+    Serde(toml::de::Error),
+}
+
+/// Serde `toml` save error
+#[derive(Debug)]
+#[cfg(feature = "toml")]
+pub enum TomlSaveError {
+    Io(IoError),
+    Serde(toml::ser::Error),
 }
 
 /// Use the configuration file in the current user directory
@@ -120,6 +140,16 @@ impl HomeConfig {
         serde_yaml::from_reader(f).map_err(YamlError::Serde)
     }
 
+    /// Parse the config file from `toml` content
+    #[cfg(feature = "toml")]
+    pub fn toml<T>(&self) -> Result<T, TomlParseError>
+    where
+        T: DeserializeOwned,
+    {
+        let bytes = self.read_to_vec().map_err(TomlParseError::Io)?;
+        toml::from_slice(&bytes).map_err(TomlParseError::Serde)
+    }
+
     fn create_parent_dir(&self) -> IoResult<()> {
         if !self.path.exists() {
             if let Some(parent) = self.path.parent() {
@@ -159,6 +189,18 @@ impl HomeConfig {
         Ok(())
     }
 
+    /// Save struct to local file (`toml` format)
+    #[cfg(feature = "toml")]
+    pub fn save_toml<T>(&self, data: T) -> Result<(), TomlSaveError>
+    where
+        T: Serialize,
+    {
+        let bytes = toml::to_string_pretty(&data).map_err(TomlSaveError::Serde)?;
+        self.create_parent_dir().map_err(TomlSaveError::Io)?;
+        fs::write(&self.path, &bytes).map_err(TomlSaveError::Io)?;
+        Ok(())
+    }
+
     /// Delete the config file
     pub fn delete(&self) -> IoResult<()> {
         match fs::remove_file(&self.path) {
@@ -195,12 +237,12 @@ mod tests {
         assert!(!config.path().exists());
     }
 
-    #[cfg(any(feature = "json", feature = "yaml"))]
+    #[cfg(any(feature = "json", feature = "yaml", feature = "toml"))]
     use serde::{Deserialize, Serialize};
 
-    #[cfg(any(feature = "json", feature = "yaml"))]
+    #[cfg(any(feature = "json", feature = "yaml", feature = "toml"))]
     #[derive(Serialize, Deserialize, Default, Debug, PartialEq, Eq)]
-    struct Options {
+    struct People {
         name: String,
         age: u32,
     }
@@ -209,23 +251,35 @@ mod tests {
     #[cfg(feature = "json")]
     fn test_json() {
         let config = HomeConfig::new("test", "config.json");
-        let opt = Options {
+        let data = People {
             name: "123".to_string(),
             age: 18,
         };
-        config.save_json(&opt).unwrap();
-        assert_eq!(config.json::<Options>().unwrap(), opt);
+        config.save_json(&data).unwrap();
+        assert_eq!(config.json::<People>().unwrap(), data);
     }
 
     #[test]
     #[cfg(feature = "yaml")]
     fn test_yaml() {
         let config = HomeConfig::new("test", "config.yaml");
-        let opt = Options {
+        let data = People {
             name: "123".to_string(),
             age: 18,
         };
-        config.save_yaml(&opt).unwrap();
-        assert_eq!(config.yaml::<Options>().unwrap(), opt);
+        config.save_yaml(&data).unwrap();
+        assert_eq!(config.yaml::<People>().unwrap(), data);
+    }
+
+    #[test]
+    #[cfg(feature = "toml")]
+    fn test_toml() {
+        let config = HomeConfig::new("test", "config.toml");
+        let data = People {
+            name: "123".to_string(),
+            age: 18,
+        };
+        config.save_toml(&data).unwrap();
+        assert_eq!(config.toml::<People>().unwrap(), data);
     }
 }

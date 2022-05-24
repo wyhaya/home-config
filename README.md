@@ -25,12 +25,14 @@ let data = config.read_to_string().unwrap();
 // 123456789
 ```
 
-### json / yaml
+### Serde support
 
-Cargo.toml
+* feature `json`
+* feature `yaml`
+* feature `toml`
 
 ```toml
-home-config = { version = "*", features = ["json", "yaml"] }
+home-config = { version = "*", features = ["json", "yaml", "toml"] }
 ```
 
 ```rust
@@ -38,7 +40,7 @@ use home_config::HomeConfig;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Default)]
-struct Options {
+struct People {
     name: String,
     age: u32,
 }
@@ -46,11 +48,10 @@ struct Options {
 let config = HomeConfig::new("app", "config.json");
 
 // Parse
-let options = config.json::<Options>().unwrap_or_default();
-// options.name == "XiaoMing";
-// options.age == 18;
+let people = config.json::<People>().unwrap();
+// people.name == "XiaoMing";
+// people.age == 18;
 
 // Save to file
-config.save_json(&options).unwrap();
+config.save_json(&people).unwrap();
 ```
-
