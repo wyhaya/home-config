@@ -12,7 +12,7 @@ Use configuration file in the HOME directory
 ```rust
 use home_config::HomeConfig;
 
-let config = HomeConfig::new("app", "config");
+let config = HomeConfig::with_config_dir("app", "config");
 // Linux: /home/name/.config/app/config
 // macOS: /Users/name/.config/app/config
 // Windows: C:\Users\name\.config\app\config
@@ -45,7 +45,10 @@ struct People {
     age: u32,
 }
 
-let config = HomeConfig::new("app", "config.json");
+let config = HomeConfig::with_file("test.json");
+// Linux: /home/name/test.json
+// macOS: /Users/name/test.json
+// Windows: C:\Users\name\test.json
 
 // Parse
 let people = config.json::<People>().unwrap();

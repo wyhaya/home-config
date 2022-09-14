@@ -2,7 +2,7 @@
 //! ```no_run
 //! use home_config::HomeConfig;
 //!
-//! let config = HomeConfig::new("app", "config");
+//! let config = HomeConfig::with_config_dir("app", "config");
 //! // Linux: /home/name/.config/app/config
 //! // macOS: /Users/name/.config/app/config
 //! // Windows: C:\Users\name\.config\app\config
@@ -35,7 +35,10 @@
 //!     age: u32,
 //! }
 //!
-//! let config = HomeConfig::new("app", "config.json");
+//! let config = HomeConfig::with_file("test.json");
+//! // Linux: /home/name/test.json
+//! // macOS: /Users/name/test.json
+//! // Windows: C:\Users\name\test.json
 //!
 //! // Parse
 //! let people = config.json::<People>().unwrap();
@@ -46,7 +49,6 @@
 //! config.save_json(&people).unwrap();
 //! ```
 
-use dirs::home_dir;
 #[cfg(any(feature = "json", feature = "yaml", feature = "toml"))]
 use serde::{de::DeserializeOwned, Serialize};
 use std::fs::{self, File};
@@ -54,6 +56,10 @@ use std::fs::{self, File};
 use std::io::Error as IoError;
 use std::io::{ErrorKind, Read, Result as IoResult};
 use std::path::{Path, PathBuf};
+
+fn home_dir() -> PathBuf {
+    dirs::home_dir().expect("get home dir")
+}
 
 /// Serde `json` error
 #[derive(Debug)]
@@ -95,10 +101,20 @@ pub struct HomeConfig {
 
 impl HomeConfig {
     /// Parse or create configuration file
-    pub fn new<P: AsRef<Path>>(app_name: &'static str, file_name: P) -> Self {
-        let path = home_dir().unwrap();
+    ///
+    /// eg. `/home/name/.config/app/config`
+    pub fn with_config_dir<P: AsRef<Path>>(app_name: &'static str, file_name: P) -> Self {
         Self {
-            path: path.join(".config").join(app_name).join(file_name),
+            path: home_dir().join(".config").join(app_name).join(file_name),
+        }
+    }
+
+    /// Parse or create configuration file
+    ///
+    /// eg. `/home/name/test.json`
+    pub fn with_file<P: AsRef<Path>>(p: P) -> Self {
+        Self {
+            path: home_dir().join(p),
         }
     }
 
@@ -183,7 +199,7 @@ impl HomeConfig {
     where
         T: Serialize,
     {
-        let bytes = serde_yaml::to_vec(&data).map_err(YamlError::Serde)?;
+        let bytes = serde_yaml::to_string(&data).map_err(YamlError::Serde)?;
         self.create_parent_dir().map_err(YamlError::Io)?;
         fs::write(&self.path, &bytes).map_err(YamlError::Io)?;
         Ok(())
@@ -217,7 +233,7 @@ mod tests {
 
     #[test]
     fn test_content() {
-        let config = HomeConfig::new("test", "file");
+        let config = HomeConfig::with_config_dir("test", "file");
         // Save
         config.save("123").unwrap();
         // Read
@@ -226,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_delete() {
-        let config = HomeConfig::new("test", "delete");
+        let config = HomeConfig::with_config_dir("test", "delete");
 
         assert!(!config.path().exists());
 
@@ -250,7 +266,7 @@ mod tests {
     #[test]
     #[cfg(feature = "json")]
     fn test_json() {
-        let config = HomeConfig::new("test", "config.json");
+        let config = HomeConfig::with_config_dir("test", "config.json");
         let data = People {
             name: "123".to_string(),
             age: 18,
@@ -262,7 +278,7 @@ mod tests {
     #[test]
     #[cfg(feature = "yaml")]
     fn test_yaml() {
-        let config = HomeConfig::new("test", "config.yaml");
+        let config = HomeConfig::with_config_dir("test", "config.yaml");
         let data = People {
             name: "123".to_string(),
             age: 18,
@@ -274,7 +290,7 @@ mod tests {
     #[test]
     #[cfg(feature = "toml")]
     fn test_toml() {
-        let config = HomeConfig::new("test", "config.toml");
+        let config = HomeConfig::with_config_dir("test", "config.toml");
         let data = People {
             name: "123".to_string(),
             age: 18,
