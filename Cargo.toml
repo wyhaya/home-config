@@ -11,10 +11,7 @@ readme = "README.md"
 keywords = [
     "home",
     "config",
-    "json",
-    "yaml",
-    "toml",
-    "hcl"
+    "config-file"
 ]
 
 [package.metadata.docs.rs]
