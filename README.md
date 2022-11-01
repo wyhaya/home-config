@@ -25,15 +25,18 @@ let data = config.read_to_string().unwrap();
 // 123456789
 ```
 
-### Serde support
+### Serde format support
 
-* feature `json`
-* feature `yaml`
-* feature `toml`
+* [JSON](https://www.json.org/)
+* [YAML](https://yaml.org/)
+* [TOML](https://toml.io/)
+* [HCL](https://github.com/hashicorp/hcl)
 
 ```toml
-home-config = { version = "*", features = ["json", "yaml", "toml"] }
+home-config = { version = "*", features = ["json", "yaml", "toml", "hcl"] }
 ```
+
+A `JSON` example:
 
 ```rust
 use home_config::HomeConfig;

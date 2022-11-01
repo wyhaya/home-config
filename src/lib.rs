@@ -15,15 +15,18 @@
 //! // 123456789
 //! ```
 //!
-//! ### Serde support
+//! ### Serde format support
 //!
-//! * feature `json`
-//! * feature `yaml`
-//! * feature `toml`
+//! * [JSON](https://www.json.org/)
+//! * [YAML](https://yaml.org/)
+//! * [TOML](https://toml.io/)
+//! * [HCL](https://github.com/hashicorp/hcl)
 //!
 //! ```toml
-//! home-config = { version = "*", features = ["json", "yaml", "toml"] }
+//! home-config = { version = "*", features = ["json", "yaml", "toml", "hcl"] }
 //! ```
+//!
+//! A `JSON` example:
 //!
 //! ```no_run
 //! use home_config::HomeConfig;
@@ -49,16 +52,16 @@
 //! config.save_json(&people).unwrap();
 //! ```
 
-#[cfg(any(feature = "json", feature = "yaml", feature = "toml"))]
+#[cfg(any(feature = "json", feature = "yaml", feature = "toml", feature = "hcl"))]
 use serde::{de::DeserializeOwned, Serialize};
 use std::fs::{self, File};
-#[cfg(any(feature = "json", feature = "yaml", feature = "toml"))]
+#[cfg(any(feature = "json", feature = "yaml", feature = "toml", feature = "hcl"))]
 use std::io::Error as IoError;
 use std::io::{ErrorKind, Read, Result as IoResult};
 use std::path::{Path, PathBuf};
 
 fn home_dir() -> PathBuf {
-    dirs::home_dir().expect("get home dir")
+    dirs::home_dir().expect("Get home dir")
 }
 
 /// Serde `json` error
@@ -91,6 +94,14 @@ pub enum TomlParseError {
 pub enum TomlSaveError {
     Io(IoError),
     Serde(toml::ser::Error),
+}
+
+/// Serde `hcl` error
+#[derive(Debug)]
+#[cfg(feature = "hcl")]
+pub enum HclError {
+    Io(IoError),
+    Serde(hcl::Error),
 }
 
 /// Use the configuration file in the current user directory
@@ -166,6 +177,16 @@ impl HomeConfig {
         toml::from_slice(&bytes).map_err(TomlParseError::Serde)
     }
 
+    /// Parse the config file from `hcl` content
+    #[cfg(feature = "hcl")]
+    pub fn hcl<T>(&self) -> Result<T, HclError>
+    where
+        T: DeserializeOwned,
+    {
+        let f = File::open(&self.path).map_err(HclError::Io)?;
+        hcl::from_reader(f).map_err(HclError::Serde)
+    }
+
     fn create_parent_dir(&self) -> IoResult<()> {
         if !self.path.exists() {
             if let Some(parent) = self.path.parent() {
@@ -217,6 +238,18 @@ impl HomeConfig {
         Ok(())
     }
 
+    /// Save struct to local file (`hcl` format)
+    #[cfg(feature = "hcl")]
+    pub fn save_hcl<T>(&self, data: T) -> Result<(), HclError>
+    where
+        T: Serialize,
+    {
+        let bytes = hcl::to_vec(&data).map_err(HclError::Serde)?;
+        self.create_parent_dir().map_err(HclError::Io)?;
+        fs::write(&self.path, &bytes).map_err(HclError::Io)?;
+        Ok(())
+    }
+
     /// Delete the config file
     pub fn delete(&self) -> IoResult<()> {
         match fs::remove_file(&self.path) {
@@ -253,10 +286,10 @@ mod tests {
         assert!(!config.path().exists());
     }
 
-    #[cfg(any(feature = "json", feature = "yaml", feature = "toml"))]
+    #[cfg(any(feature = "json", feature = "yaml", feature = "toml", feature = "hcl"))]
     use serde::{Deserialize, Serialize};
 
-    #[cfg(any(feature = "json", feature = "yaml", feature = "toml"))]
+    #[cfg(any(feature = "json", feature = "yaml", feature = "toml", feature = "hcl"))]
     #[derive(Serialize, Deserialize, Default, Debug, PartialEq, Eq)]
     struct People {
         name: String,
@@ -297,5 +330,17 @@ mod tests {
         };
         config.save_toml(&data).unwrap();
         assert_eq!(config.toml::<People>().unwrap(), data);
+    }
+
+    #[test]
+    #[cfg(feature = "hcl")]
+    fn test_hcl() {
+        let config = HomeConfig::with_config_dir("test", "config.hcl");
+        let data = People {
+            name: "123".to_string(),
+            age: 18,
+        };
+        config.save_hcl(&data).unwrap();
+        assert_eq!(config.hcl::<People>().unwrap(), data);
     }
 }
